@@ -169,6 +169,17 @@ def clean_dataframe(df):
     
     return df_clean
 
+def truncate_staging_table(conn):
+    """Truncate the Coach_Staging table to remove existing data"""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("TRUNCATE TABLE Coach_Staging")
+        conn.commit()
+        cursor.close()
+        print("Coach_Staging table truncated successfully")
+    except Exception as e:
+        print(f"Error truncating table: {e}")
+
 def import_csv_to_sql(conn, csv_file):
     """Import a single CSV file into SQL Server"""
     try:
@@ -176,15 +187,9 @@ def import_csv_to_sql(conn, csv_file):
         df = pd.read_csv(csv_file, keep_default_na=False, na_values=['', 'NA', 'N/A', 'null'])
         print(f"\nProcessing {csv_file}")
         print(f"Rows found: {len(df)}")
-        print(f"Columns found: {list(df.columns)}")
         
         # Clean the dataframe
         df_clean = clean_dataframe(df)
-        
-        # Debug: Print first few rows to see data structure
-        print(f"Cleaned columns: {list(df_clean.columns)}")
-        print(f"Sample data after cleaning:")
-        print(df_clean.head(2).to_string())
         
         # Insert data
         cursor = conn.cursor()
@@ -195,7 +200,6 @@ def import_csv_to_sql(conn, csv_file):
         column_names = ','.join([f'[{col}]' for col in columns])
         
         insert_sql = f"INSERT INTO Coach_Staging ({column_names}) VALUES ({placeholders})"
-        print(f"Insert SQL: {insert_sql}")
         
         # Insert rows
         rows_inserted = 0
@@ -209,9 +213,6 @@ def import_csv_to_sql(conn, csv_file):
                 else:
                     values.append(val)
             values = tuple(values)
-            
-            if index < 2:  # Debug print for first few rows
-                print(f"Row {index}: {values}")
             
             cursor.execute(insert_sql, values)
             rows_inserted += 1
@@ -248,6 +249,9 @@ def main():
     try:
         # Create table if it doesn't exist
         create_staging_table(conn)
+        
+        # Truncate table to remove existing data
+        truncate_staging_table(conn)
         
         # Process each CSV file
         for csv_file in csv_files:
